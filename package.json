@@ -1,5 +1,5 @@
 {
-  "name": "mongodb-queries-with-tweets",
+  "name": "redis-queries-with-tweets",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
