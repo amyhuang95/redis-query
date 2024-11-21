@@ -1,5 +1,6 @@
 /**
- * Who are the top 10 people that got more retweets on average,
+ * Create a leaderboard with the top 10 users with more tweets.
+ * Use a sorted set called leaderboard
  */
 import { connectToDatabase } from './dbConnection.js';
 
