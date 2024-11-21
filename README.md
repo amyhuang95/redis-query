@@ -12,7 +12,7 @@ This project contains a set of queries to be executed on a Redis database contai
 
 ## How to run the queries
 
-0. Make sure you have MongoDB and Redis installed and running.
+0. Make sure you have [MongoDB](https://www.mongodb.com/docs/manual/installation/) and [Redis](https://redis.io/docs/latest/get-started/) installed and running.
 1. Clone the repository, and navigate to the project directory.
 2. Install the dependencies:
    ```bash
