@@ -10,7 +10,7 @@ const main = async () => {
   const redisClient = await connectToRedis();
 
   try {
-    // Add each screen_name to a sorted set with ZADD
+    // Count screen names from each tweet
     while (await tweets.hasNext()) {
       const tweet = await tweets.next();
       await redisClient.zIncrBy('leaderboard', 1, tweet.user.screen_name);
