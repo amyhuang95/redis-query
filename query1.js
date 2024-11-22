@@ -2,22 +2,20 @@
  * How many tweets are there?
  *
  */
-import { connectToDatabase } from './dbConnection.js';
+import { getTweets } from './getTweets.js';
+import { connectToRedis } from './redisConnection.js';
 
 const main = async () => {
-  const { tweetCollection, mongoClient, redisClient } =
-    await connectToDatabase();
+  const { tweets, mongoClient } = await getTweets();
+  const redisClient = await connectToRedis();
 
   try {
     // Initialize tweetCount to 0
     await redisClient.set('tweetCount', '0');
 
-    // Query the tweets collection in Mongo
-    let tweetsCursor = tweetCollection.find({});
-
     // Increase tweetCount
-    while (await tweetsCursor.hasNext()) {
-      await tweetsCursor.next();
+    while (await tweets.hasNext()) {
+      await tweets.next();
       await redisClient.incr('tweetCount');
     }
 
@@ -27,6 +25,7 @@ const main = async () => {
   } catch (e) {
     console.error(e);
   } finally {
+    await tweets.close();
     await mongoClient.close();
     await redisClient.quit();
   }
