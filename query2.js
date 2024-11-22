@@ -4,58 +4,32 @@
  * key (SET), increment it by the number of favorites on each tweet (INCRBY),
  * and then get the value (GET) and print it on the screen.
  */
-import { connectToDatabase } from './dbConnection.js';
-
-const pipeline = [
-  // Sort tweets by created_at
-  {
-    $sort: {
-      created_at: -1,
-    },
-  },
-  // Group by user screen name, get latest followers count
-  {
-    $group: {
-      _id: '$user.screen_name',
-      last_followers_count: {
-        $last: '$user.followers_count',
-      },
-    },
-  },
-  // Sort by last followers count
-  {
-    $sort: {
-      last_followers_count: -1,
-    },
-  },
-  // Show top 10 records
-  {
-    $limit: 10,
-  },
-  // rename columns
-  {
-    $project: {
-      screen_name: '$_id',
-      last_followers_count: 1,
-      _id: 0,
-    },
-  },
-];
+import { getTweets } from './getTweets.js';
+import { connectToRedis } from './redisConnection.js';
 
 const main = async () => {
-  const { tweetCollection, client } = await connectToDatabase();
+  const { tweets, mongoClient } = await getTweets();
+  const redisClient = await connectToRedis();
 
   try {
-    // Get query results
-    let result = tweetCollection.aggregate(pipeline);
-    console.log('Top 10 screen_names by their number of followers:');
-    for await (const doc of result) {
-      console.log(doc.screen_name, doc.last_followers_count);
+    // Initialize favoritesSum
+    await redisClient.set('favoritesSum', '0');
+
+    // Increase favoritesSum
+    while (await tweets.hasNext()) {
+      const tweet = await tweets.next();
+      await redisClient.incrBy('favoritesSum', tweet.favorite_count);
     }
+
+    // Get final favoritesSum
+    const value = await redisClient.get('favoritesSum');
+    console.log('Total number of favorites:', value);
   } catch (e) {
     console.error(e);
   } finally {
-    await client.close();
+    await tweets.close();
+    await mongoClient.close();
+    await redisClient.quit();
   }
 };
 
