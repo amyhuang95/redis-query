@@ -2,29 +2,29 @@
  * Compute how many distinct users are there in the dataset. For this use a
  * set by the screen_name, e.g. screen_names
  */
-import { connectToDatabase } from './dbConnection.js';
-
-const pipeline = [
-  // Sort tweets by user names
-  {
-    $sortByCount: '$user.name',
-  },
-  // Get the first record
-  {
-    $limit: 1,
-  },
-];
+import { getTweets } from './getTweets.js';
+import { connectToRedis } from './redisConnection.js';
 
 const main = async () => {
-  const { tweetCollection, client } = await connectToDatabase();
+  const { tweets, mongoClient } = await getTweets();
+  const redisClient = await connectToRedis();
 
   try {
-    let result = await tweetCollection.aggregate(pipeline).next();
-    console.log(result._id, 'got the most tweets with', result.count, 'tweets');
+    // Add each screen_name to a set
+    while (await tweets.hasNext()) {
+      const tweet = await tweets.next();
+      await redisClient.sAdd('screen_names', tweet.user.screen_name);
+    }
+
+    // Get final screen_names
+    const value = await redisClient.sCard('screen_names');
+    console.log('Total number of distinct users:', value);
   } catch (e) {
     console.error(e);
   } finally {
-    await client.close();
+    await tweets.close();
+    await mongoClient.close();
+    await redisClient.quit();
   }
 };
 
