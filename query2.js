@@ -27,7 +27,7 @@ const main = async () => {
   } finally {
     await tweets.close();
     await mongoClient.close();
-    await redisClient.close();
+    await redisClient.quit();
   }
 };
 
