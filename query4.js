@@ -2,56 +2,34 @@
  * Create a leaderboard with the top 10 users with more tweets.
  * Use a sorted set called leaderboard
  */
-import { connectToDatabase } from './dbConnection.js';
-
-const pipeline = [
-  // Group by user name, get the number of tweets and the average retweets
-  {
-    $group: {
-      _id: '$user.name',
-      tweets: {
-        $count: {},
-      },
-      avg_retweets: {
-        $avg: '$retweet_count',
-      },
-    },
-  },
-  // Filter users with more than 3 tweets
-  {
-    $match: {
-      tweets: {
-        $gt: 3,
-      },
-    },
-  },
-  // Sort by average retweets
-  {
-    $sort: {
-      avg_retweets: -1,
-    },
-  },
-  // Show top 10 records
-  {
-    $limit: 10,
-  },
-];
+import { getTweets } from './getTweets.js';
+import { connectToRedis } from './redisConnection.js';
 
 const main = async () => {
-  const { tweetCollection, client } = await connectToDatabase();
+  const { tweets, mongoClient } = await getTweets();
+  const redisClient = await connectToRedis();
 
   try {
-    let result = tweetCollection.aggregate(pipeline);
-    console.log(
-      'Top 10 people that got more retweets on average after tweeting more than 3 times:'
-    );
-    for await (const doc of result) {
-      console.log(doc._id, 'got', doc.avg_retweets, 'retweets on average.');
+    // Add each screen_name to a sorted set with ZADD
+    while (await tweets.hasNext()) {
+      const tweet = await tweets.next();
+      await redisClient.zIncrBy('leaderboard', 1, tweet.user.screen_name);
     }
+
+    // Get the top 10 users with the most tweets
+    const topUsers = await redisClient.zRangeWithScores('leaderboard', 0, 9, {
+      REV: true,
+    });
+    console.log('Top 10 users with the most tweets:');
+    topUsers.forEach((user, index) => {
+      console.log(`${index + 1}. ${user.value}: ${user.score} tweets`);
+    });
   } catch (e) {
     console.error(e);
   } finally {
-    await client.close();
+    await tweets.close();
+    await mongoClient.close();
+    await redisClient.quit();
   }
 };
 
