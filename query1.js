@@ -1,27 +1,37 @@
 /**
- * How many tweets are there? Create a tweetCount key that contains the total
- * number of tweets in the database. For this, initialize tweetCount in 0 (SET)
- * , then query the tweets collection in Mongo and increase (INCR) tweetCount.
- * Once the query is done, get the last value of tweetCount (GET) and print it
- * in the console with a message that says "There were ### tweets", with ###
- * being the actual number
+ * How many tweets are there?
+ *
  */
 import { connectToDatabase } from './dbConnection.js';
 
 const main = async () => {
-  const { tweetCollection, client } = await connectToDatabase();
+  const { tweetCollection, mongoClient, redisClient } =
+    await connectToDatabase();
 
   try {
-    // Get query results
-    let result = await tweetCollection.countDocuments({
+    // Initialize tweetCount to 0
+    await redisClient.set('tweetCount', '0');
+
+    // Query the tweets collection in Mongo
+    let tweetsCursor = tweetCollection.find({
       retweeted_status: { $exists: false },
       in_reply_to_status_id: null,
     });
-    console.log(result);
+
+    // Increase tweetCount
+    while (await tweetsCursor.hasNext()) {
+      await tweetsCursor.next();
+      await redisClient.incr('tweetCount');
+    }
+
+    // Get final tweetCount
+    const value = await redisClient.get('tweetCount');
+    console.log('There were', value, 'tweets.');
   } catch (e) {
     console.error(e);
   } finally {
-    await client.close();
+    await mongoClient.close();
+    await redisClient.quit();
   }
 };
 
