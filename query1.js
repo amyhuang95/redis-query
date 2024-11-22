@@ -13,10 +13,7 @@ const main = async () => {
     await redisClient.set('tweetCount', '0');
 
     // Query the tweets collection in Mongo
-    let tweetsCursor = tweetCollection.find({
-      retweeted_status: { $exists: false },
-      in_reply_to_status_id: null,
-    });
+    let tweetsCursor = tweetCollection.find({});
 
     // Increase tweetCount
     while (await tweetsCursor.hasNext()) {
